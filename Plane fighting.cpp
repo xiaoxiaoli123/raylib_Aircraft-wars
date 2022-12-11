@@ -30,15 +30,42 @@ enum General //设置窗口大小
 {
     screenWidth = 480,
     screenHeight = 700,
-    BULLET_NUM = 15//玩家子弹的数量
+    BULLET_NUM = 15,//玩家子弹的数量
+    ENEMY_NUM = 10,//敌机数量
+    BIG,
+    SMALL
 };
 
-struct Player
+struct Plane
 {
     int x;
     int y;
     bool live;//是否存活
-}player, bullet[BULLET_NUM];//player结构体别名, 子弹直接放在这里
+    //int lifespawn;//解决子弹在屏幕上同时多个分布的问题
+    int width; 
+    int height;
+    int hp;
+    int type;//敌机类型 big/ small
+}player, bullet[BULLET_NUM], enemy[ENEMY_NUM];//player结构体别名, 子弹直接放在这里
+
+//定大小敌机的血量
+void enemyHP(int i)
+{
+    if (GetRandomValue(1, 10) % 10 == 0) //0~9之间的随机数
+    {
+        enemy[i].type = BIG;
+        enemy[i].hp = 3;
+        enemy[i].width = 69;
+        enemy[i].height = 99;
+    }
+    else
+    {
+        enemy[i].type = SMALL;
+        enemy[i].hp = 1;
+        enemy[i].width = 57;
+        enemy[i].height = 43;
+    }
+}
 
 void gameInit()//游戏初始化
 {
@@ -53,6 +80,14 @@ void gameInit()//游戏初始化
         bullet[i].x = 0;
         bullet[i].y = 0;
         bullet[i].live = false;
+        //bullet[i].lifespawn = 0;
+    }
+
+    //初始化敌机
+    for (int i = 0; i < ENEMY_NUM; i++)
+    {
+        enemy[i].live = false;
+        enemyHP(i);
     }
 }
 
@@ -62,15 +97,12 @@ void createBullet()
     for (int i = 0; i < BULLET_NUM; i++)
     {
         //如果子弹死了才能重新从飞机头部创建
-        for (int i = 0; i < BULLET_NUM; i++)
+        if (!bullet[i].live)
         {
-            if (!bullet[i].live)
-            {
-                bullet[i].x = player.x + 50;
-                bullet[i].y = player.y;
-                bullet[i].live = true;
-                break; //按一次键发射一次
-            }
+            bullet[i].x = player.x + 50;
+            bullet[i].y = player.y;
+            bullet[i].live = true;
+            break; //按一次键发射一次
         }
     }
 }
@@ -101,7 +133,6 @@ void playerMove(int speed) //可以通过speed调节飞机速度
         {
             player.y -= speed;
         }
-        
     }
     if (IsKeyDown(KEY_DOWN))
     {
@@ -125,14 +156,51 @@ void playerMove(int speed) //可以通过speed调节飞机速度
         }
     }
 
-    if (IsKeyPressed(KEY_SPACE))
+    if (IsKeyDown(KEY_SPACE))
     {
-        SetTargetFPS(200);//调整子弹的速度
         createBullet();
+        
+        // bullet life timer
+       /* for (int i = 0; i < BULLET_NUM; i++)
+        {
+            if (bullet[i].live)
+            {
+                bullet[i].lifespawn++;
+            }
+        }*/
     }
 }
 
+//产生敌机
+void createEnemy()
+{
+    for (int i = 0; i < ENEMY_NUM; i++)
+    {
+        if (!enemy[i].live)
+        {
+            enemy[i].live = true;
+            enemy[i].x = GetRandomValue(0, (screenWidth - 70));
+            enemy[i].y = 0;
+            break;
+        }
+    }
+}
 
+//敌机的移动(和bullet移动是一样的)
+void enemyMove(int speed)
+{
+    for (int i = 0; i < ENEMY_NUM; i++)
+    {
+        if (enemy[i].live)
+        {
+            enemy[i].y += speed;
+            if (enemy[i].y > screenHeight)
+            {
+                enemy[i].live = false;
+            }
+        }
+    }
+}
 
 int main(void)
 {
@@ -144,10 +212,9 @@ int main(void)
     // 加载图片，注意要用texture
     Texture tbk = LoadTexture("background.png");//背景
     Texture tplayer = LoadTexture("me1.png");//玩家
-    Texture tbullet = LoadTexture("bullet1.png");//子弹
-    
-    
-    
+    Texture tbullet = LoadTexture("bullet1.png");//子弹   
+    Texture tenemy1 = LoadTexture("enemy1.png");//小敌机
+    Texture tenemy2 = LoadTexture("enemy2.png");//大敌机
 
     SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
@@ -166,17 +233,35 @@ int main(void)
         //显示图片（因为一直要显示的，所以放在while循环里）
         DrawTexture(tbk, 0, 0, WHITE);
         DrawTexture(tplayer, player.x, player.y, WHITE);
-        playerMove(5);
+        
         //绘制子弹，注意要判断为true时才绘制
         for (int i = 0; i < BULLET_NUM; i++)
         {
             if (bullet[i].live)
             {
-                DrawTexture(tbullet, bullet[i].x, bullet[i].y, WHITE);
+                DrawTexture(tbullet, bullet[i].x, bullet[i].y, WHITE); 
             }
         }
-        bulletMove();
 
+        //绘制敌机
+        for (int i = 0; i < ENEMY_NUM; i++)
+        {
+            if (enemy[i].live)
+            {
+                if (enemy[i].type == BIG)
+                {
+                    DrawTexture(tenemy1, enemy[i].x, enemy[i].y, WHITE);
+                }
+                else
+                {
+                    DrawTexture(tenemy2, enemy[i].x, enemy[i].y, WHITE);
+                }
+            }
+        }
+        playerMove(5);
+        bulletMove();
+        createEnemy();
+        enemyMove(1);
         ClearBackground(RAYWHITE);
 
         DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
@@ -187,7 +272,9 @@ int main(void)
     }
     UnloadTexture(tbk);//卸载图片，放在while循环外
     UnloadTexture(tplayer);
-
+    UnloadTexture(tbullet);
+    UnloadTexture(tenemy1);
+    UnloadTexture(tenemy2);
     // De-Initialization
     //--------------------------------------------------------------------------------------
     CloseWindow();        // Close window and OpenGL context
