@@ -1,3 +1,1 @@
-# raylib_Practice
-Personnal practice with raylib (C++)
-The first game: plane fighting
+The first game: aircraft wars
