@@ -156,20 +156,11 @@ void playerMove(int speed) // use "speed" to control the movement of player
         }
     }  
 
-        static double t1 = 0, t2 = 0; // time delay between two bullets
-        if (IsKeyDown(KEY_SPACE) && t2 - t1 > 0.05)
-    {
-                   
+    static double t1 = 0, t2 = 0; // time delay between two bullets
+    if (IsKeyDown(KEY_SPACE) && t2 - t1 > 0.05)
+    {            
         createBullet();
         t1 = t2;
-        // bullet life timer
-       /* for (int i = 0; i < BULLET_NUM; i++)
-        {
-            if (bullet[i].live)
-            {
-                bullet[i].lifespawn++;
-            }
-        }*/
     }
     t2 = GetTime();
 }
@@ -260,11 +251,18 @@ double GetElapsed(Timer timer)
     return GetTime() - timer.startTime;
 }
 
+void Welcome()
+{
+    DrawText(TextFormat("AIRCRAFT WAR"), 200, 200, 40, WHITE);
+    DrawText(TextFormat("PLAY"), 200, 300, 20, GREEN);
+    DrawText(TextFormat("EXIT"), 200, 400, 20, RED);
+}
+
 int main(void)
 {
     // Initialization
     //--------------------------------------------------------------------------------------
-
+    
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");// already set by templete, just modified the data above
     gameInit();// it can't be in the loop, or it'll be in the initialized position forever, it can' move
     // load the pictures, use "texture" here
@@ -273,6 +271,14 @@ int main(void)
     Texture tbullet = LoadTexture("bullet1.png");//bullet pic
     Texture tenemy1 = LoadTexture("enemy1.png");//small enemy
     Texture tenemy2 = LoadTexture("enemy2.png");//big enemy
+
+    //play music
+    InitAudioDevice(); // Initialize audio device
+    Music bkmusic = LoadMusicStream("game_music.ogg");
+    //Sound bkmusic = LoadSound("bkmusic.ogg");
+    PlayMusicStream(bkmusic);
+   /* Sound blWav = LoadSound("bullet.wav");
+    SetSoundVolume(blWav, 0.2f);*/
 
     SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
@@ -284,9 +290,14 @@ int main(void)
     // Main game loop
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
+        
+        Welcome();
         // Update
         //----------------------------------------------------------------------------------
         // TODO: Update your variables here
+        UpdateMusicStream(bkmusic);   // Update music buffer with new stream data
+      /*  PlaySound(bkmusic);
+        if (IsKeyPressed(KEY_SPACE)) PlaySound(blWav);*/
         //----------------------------------------------------------------------------------
         
         // Draw
@@ -339,13 +350,21 @@ int main(void)
       
         //----------------------------------------------------------------------------------
     }
+   
+    // De-Initialization
+    //--------------------------------------------------------------------------------------
     UnloadTexture(tbk);//unload the pics, they should be put outside the loop
     UnloadTexture(tplayer);
     UnloadTexture(tbullet);
     UnloadTexture(tenemy1);
     UnloadTexture(tenemy2);
-    // De-Initialization
-    //--------------------------------------------------------------------------------------
+
+    //StopSoundMulti();       // We must stop the buffer pool before unloading
+    UnloadMusicStream(bkmusic);   // Unload music stream buffers from RAM
+ /*   UnloadSound(bkmusic);
+    UnloadSound(blWav);*/
+    CloseAudioDevice();         // Close audio device (music streaming is automatically stopped)
+
     CloseWindow();        // Close window and OpenGL context
     //--------------------------------------------------------------------------------------
 
