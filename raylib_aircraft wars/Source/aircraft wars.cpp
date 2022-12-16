@@ -277,8 +277,9 @@ int main(void)
     Music bkmusic = LoadMusicStream("game_music.ogg");
     //Sound bkmusic = LoadSound("bkmusic.ogg");
     PlayMusicStream(bkmusic);
-   /* Sound blWav = LoadSound("bullet.wav");
-    SetSoundVolume(blWav, 0.2f);*/
+    Sound blWav = LoadSound("bullet.wav");
+    SetMusicVolume(bkmusic, 0.2f);
+    SetSoundVolume(blWav, 0.5f);
 
     SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
@@ -296,8 +297,8 @@ int main(void)
         //----------------------------------------------------------------------------------
         // TODO: Update your variables here
         UpdateMusicStream(bkmusic);   // Update music buffer with new stream data
-      /*  PlaySound(bkmusic);
-        if (IsKeyPressed(KEY_SPACE)) PlaySound(blWav);*/
+        //PlaySoundMulti(bkmusic);
+        if (IsKeyPressed(KEY_SPACE)) PlaySoundMulti(blWav);
         //----------------------------------------------------------------------------------
         
         // Draw
@@ -359,10 +360,10 @@ int main(void)
     UnloadTexture(tenemy1);
     UnloadTexture(tenemy2);
 
-    //StopSoundMulti();       // We must stop the buffer pool before unloading
+    StopSoundMulti();       // We must stop the buffer pool before unloading
     UnloadMusicStream(bkmusic);   // Unload music stream buffers from RAM
- /*   UnloadSound(bkmusic);
-    UnloadSound(blWav);*/
+    //UnloadSound(bkmusic);
+    UnloadSound(blWav);
     CloseAudioDevice();         // Close audio device (music streaming is automatically stopped)
 
     CloseWindow();        // Close window and OpenGL context
