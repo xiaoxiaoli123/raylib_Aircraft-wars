@@ -1,373 +1,274 @@
-/*******************************************************************************************
-*
-*   raylib [core] example - Basic window
-*
-*   Welcome to raylib!
-*
-*   To test examples, just press F6 and execute raylib_compile_execute script
-*   Note that compiled executable is placed in the same folder as .c file
-*
-*   You can find all basic examples on C:\raylib\raylib\examples folder or
-*   raylib official webpage: www.raylib.com
-*
-*   Enjoy using raylib. :)
-*
-*   Example originally created with raylib 1.0, last time updated with raylib 1.0
-*
-*   Example licensed under an unmodified zlib/libpng license, which is an OSI-certified,
-*   BSD-like license that allows static linking with closed source software
-*
-*   Copyright (c) 2013-2022 Ramon Santamaria (@raysan5)
-*
-********************************************************************************************/
-
 #include "raylib.h"
+#include "Constants.h"
+#include "Player.h"
+#include "Enemy.h"
+#include "Bullet.h"
 
-//------------------------------------------------------------------------------------
-// Program main entry point
-//------------------------------------------------------------------------------------
-enum General //create the common constants
+struct Game
 {
-    screenWidth = 480,
-    screenHeight = 700,
-    BULLET_NUM = 15,//the bullet number of player
-    ENEMY_NUM = 10,//the maximum number of enemies on screen at the same time
-    BIG,
-    SMALL
+    Player player;
+    Enemy enemy[ENEMY_NUM];
+    Bullet bullet[BULLET_NUM];
+
+    Texture tbk;
+    Texture tplayer;
+    Texture tbullet;
+    Texture tenemy1;
+    Texture tenemy2;
+
+    Music bkmusic;
+    Sound blWav;
 };
 
-struct Plane
+//create the Hp for enemies
+void enemyType(Game* game, int i)
 {
-    int x;
-    int y;
-    bool live;//if the object live or not(player/ enemy)
-    //int lifespawn;// solve spawn many bullets on the screen at the same time
-    int width; 
-    int height;
-    int hp;
-    int type;//types of enemy (big/ small)
-}player, bullet[BULLET_NUM], enemy[ENEMY_NUM];//variables for different objectives 
-
-//create the Hp for enemies)
-void enemyHP(int i)
-{
-    if (GetRandomValue(0, 10) % 10 == 0) //random number between 0~9 (why? it should BIG in the "if")
+    if (GetRandomValue(0, 10) % 10 == 0) 
     {
-        enemy[i].type = SMALL;
-        enemy[i].hp = 1;
-        enemy[i].width = 57;
-        enemy[i].height = 43;
+        game->enemy[i].type = SMALL;
+        game->enemy[i].hp = 1;
+        game->enemy[i].width = 57;
+        game->enemy[i].height = 43;
     }
     else
     {
-        enemy[i].type = BIG;
-        enemy[i].hp = 3;
-        enemy[i].width = 69;
-        enemy[i].height = 99;
+        game->enemy[i].type = BIG;
+        game->enemy[i].hp = 3;
+        game->enemy[i].width = 69;
+        game->enemy[i].height = 99;
     }
 }
 
-void gameInit()//initialization of the game
+void gameInit(Game* game)
 {
-    player.x = screenWidth / 2 - 60;
-    player.y = screenHeight - 120;
-    player.live = true;
+    game->tbk = LoadTexture("Asset/background.png");
+    game->tplayer = LoadTexture("Asset/me1.png");
+    game->tbullet = LoadTexture("Asset/bullet1.png");
+    game->tenemy1 = LoadTexture("Asset/enemy1.png");
+    game->tenemy2 = LoadTexture("Asset/enemy2.png");
 
-    //initialization of the bullet
-    for (int i = 0; i < BULLET_NUM; i++)
-    {
-        //if bullet is dead, it's no need to draw it
-        bullet[i].x = 0;
-        bullet[i].y = 0;
-        bullet[i].live = false;
-        //bullet[i].lifespawn = 0;
-    }
+    game->bkmusic = LoadMusicStream("Sound/game_music.ogg");
+    game->blWav = LoadSound("Sound/bullet.wav");
+    
+    game->player.x = screenWidth / 2 - 60;
+    game->player.y = screenHeight - 120;
+    game->player.live = true;
 
-    //initialization of the enemy
     for (int i = 0; i < ENEMY_NUM; i++)
     {
-        enemy[i].live = false;
-        enemyHP(i);
+        game->enemy[i].live = false;
+        enemyType(game, i);
     }
+
+    for (int i = 0; i < BULLET_NUM; i++)
+    {
+        game->bullet[i].x = 0;
+        game->bullet[i].y = 0;
+        game->bullet[i].live= false;
+    }
+
+    PlayMusicStream(game->bkmusic);
+    SetMusicVolume(game->bkmusic, 0.2f);
+    SetSoundVolume(game->blWav, 0.5f);
 }
 
-//create bullet (as it'll be called by the player, so it should be put before the player)
-void createBullet()
+void createBullet(Game* game)
 {
     for (int i = 0; i < BULLET_NUM; i++)
     {
-        // the bullet can be created only after it dies, it should be created at the head of the player
-        if (!bullet[i].live)
+        if (!game->bullet[i].live)
         {
-            bullet[i].x = player.x + 50;
-            bullet[i].y = player.y;
-            bullet[i].live = true;
+            game->bullet[i].x = game->player.x + 50;
+            game->bullet[i].y = game->player.y;
+            game->bullet[i].live = true;
             break; // press key once, shoot one bullet, so "break" should be used here
         }
     }
 }
 
-//make the bullet move
-void bulletMove()
+void bulletMove(Game* game)
 {
     for (int i = 0; i < BULLET_NUM; i++)
     {
-        if (bullet[i].live) // bullet move only if it's alive
+        if (game->bullet[i].live) 
         {
-            bullet[i].y -= 10;//moves only in the y axis
-            if (bullet[i].y < 0) // make bullet dead if it's out of the screen, then a new bullet can be created
+            game->bullet[i].y -= 10;
+            if (game->bullet[i].y < 0) 
             {
-                bullet[i].live = false;
+                game->bullet[i].live = false;
             }
         }
     }
 }
 
-//make the player move, use UP/DOWN/LEFT/RIGHT
-void playerMove(int speed) // use "speed" to control the movement of player
+void playerMove(Game* game, int speed) 
 {
     if (IsKeyDown(KEY_UP))
     {
-        // deal with the borders, player can't go out of the screen
-        if (player.y > 0)
+        if (game->player.y > 0)
         {
-            player.y -= speed;
+            game->player.y -= speed;
         }
     }
     if (IsKeyDown(KEY_DOWN))
     {
-        if (player.y < (screenHeight - 120))
+        if (game->player.y < (screenHeight - 120))
         {
-            player.y += speed;
+            game->player.y += speed;
         }
     }
     if (IsKeyDown(KEY_LEFT))
     {
-        if (player.x > -30)
+        if (game->player.x > 0)
         {
-            player.x -= speed;
+            game->player.x -= speed;
         }
     }
     if (IsKeyDown(KEY_RIGHT))
     {
-        if (player.x < (screenWidth - 80))
+        if (game->player.x < (screenWidth - 80))
         {
-            player.x += speed; 
+            game->player.x += speed; 
         }
     }  
 
-    static double t1 = 0, t2 = 0; // time delay between two bullets
+    static double t1 = 0, t2 = 0; // need time delay between two bullets
     if (IsKeyDown(KEY_SPACE) && t2 - t1 > 0.05)
     {            
-        createBullet();
+        createBullet(game);
         t1 = t2;
     }
     t2 = GetTime();
 }
 
-// create enemy
-void createEnemy()
+void createEnemy(Game* game)
 {
     for (int i = 0; i < ENEMY_NUM; i++)
     {
-        if (!enemy[i].live)
+        if (!game->enemy[i].live)
         {
-            enemy[i].live = true;
-            enemy[i].x = GetRandomValue(0, (screenWidth - 70));
-            enemy[i].y = 0;
-            enemyHP(i); //need to create the hp for enemy, or it won't be created once is shoot by player
+            game->enemy[i].live = true;
+            game->enemy[i].x = GetRandomValue(0, (screenWidth - 70));
+            game->enemy[i].y = 0;
+            enemyType(game, i); //need to create the hp for enemy, or it won't be created once is shoot by player
             break;
         }
     }
 }
 
-// make enemy move (same as bullet)
-void enemyMove(int speed)
+void enemyMove(Game* game, int speed)
 {
     for (int i = 0; i < ENEMY_NUM; i++)
     {
-        if (enemy[i].live)
+        if (game->enemy[i].live)
         {
-            enemy[i].y += speed;
-            if (enemy[i].y > screenHeight)
+            game->enemy[i].y += speed;
+            if (game->enemy[i].y > screenHeight)
             {
-                enemy[i].live = false;
+                game->enemy[i].live = false;
             }
         }
     }
 }
 
-//collision (bullet vs enemy)
-void collisionBullet()
+void collisionBullet(Game* game)
 {
     for (int i = 0; i < ENEMY_NUM; i++)
     {
-        if (!enemy[i].live)
+        if (!game->enemy[i].live)
             continue;
         for (int k = 0; k < BULLET_NUM; k++)
         {
-            if (!bullet[k].live)
+            if (!game->bullet[k].live)
                 continue;
-            if (bullet[k].x > enemy[i].x && bullet[k].x < enemy[i].x + enemy[i].width
-                && bullet[k].y > enemy[i].y && bullet[k].y < enemy[i].y + enemy[i].height)
+            if (game->bullet[k].x > game->enemy[i].x && game->bullet[k].x < game->enemy[i].x + game->enemy[i].width
+                && game->bullet[k].y > game->enemy[i].y && game->bullet[k].y < game->enemy[i].y + game->enemy[i].height)
             {
-                bullet[k].live = false;
-                enemy[i].hp--;
+                game->bullet[k].live = false;
+                game->enemy[i].hp--;
             }
         }
-        if (enemy[i].hp <= 0)
+        if (game->enemy[i].hp <= 0)
         {
-            enemy[i].live = false;
+            game->enemy[i].live = false;
         }
     }
 }
 
-//define a timer, use it for enemies falling down seperately (refered from https://github.com/raysan5/raylib/wiki/Frequently-Asked-Questions#how-do-i-make-a-timer)
-typedef struct Timer 
+void Drawing(Game *game)
 {
-    double startTime;   // Start time (seconds)
-    double lifeTime;    // Lifetime (seconds)
-} Timer;
+    DrawTexture(game->tbk, 0, 0, WHITE);
+    DrawTexture(game->tplayer, game->player.x, game->player.y, WHITE);
 
-void StartTimer(Timer* timer, double lifetime) 
-{
-    timer->startTime = GetTime();
-    //timer->lifeTime = lifetime;
-}
+    for (int i = 0; i < BULLET_NUM; i++)
+    {
+        if (game->bullet[i].live)
+        {
+            DrawTexture(game->tbullet, game->bullet[i].x, game->bullet[i].y, WHITE);
+        }
+    }
 
-void UpdateTimer(Timer* timer)
-{
-    if (timer != NULL && timer->lifeTime > 0)
-        timer->lifeTime -= GetFrameTime();
-}
-
-bool TimerDone(Timer timer)
-{
-    return GetTime() - timer.startTime >= timer.lifeTime;
-}
-
-double GetElapsed(Timer timer)
-{
-    return GetTime() - timer.startTime;
-}
-
-void Welcome()
-{
-    DrawText(TextFormat("AIRCRAFT WAR"), 200, 200, 40, WHITE);
-    DrawText(TextFormat("PLAY"), 200, 300, 20, GREEN);
-    DrawText(TextFormat("EXIT"), 200, 400, 20, RED);
+    for (int i = 0; i < ENEMY_NUM; i++)
+    {
+        if (game->enemy[i].live)
+        {
+            if (game->enemy[i].type == BIG)
+            {
+                DrawTexture(game->tenemy1, game->enemy[i].x, game->enemy[i].y, WHITE);
+            }
+            else
+            {
+                DrawTexture(game->tenemy2, game->enemy[i].x, game->enemy[i].y, WHITE);
+            }
+        }
+    }
 }
 
 int main(void)
 {
-    // Initialization
-    //--------------------------------------------------------------------------------------
-    
-    InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");// already set by templete, just modified the data above
-    gameInit();// it can't be in the loop, or it'll be in the initialized position forever, it can' move
-    // load the pictures, use "texture" here
-    Texture tbk = LoadTexture("background.png");//background pic
-    Texture tplayer = LoadTexture("me1.png");//player pic
-    Texture tbullet = LoadTexture("bullet1.png");//bullet pic
-    Texture tenemy1 = LoadTexture("enemy1.png");//small enemy
-    Texture tenemy2 = LoadTexture("enemy2.png");//big enemy
+    Game game = {};
+    InitWindow(screenWidth, screenHeight, "aircraft wars");
+    InitAudioDevice();
 
-    //play music
-    InitAudioDevice(); // Initialize audio device
-    Music bkmusic = LoadMusicStream("game_music.ogg");
-    //Sound bkmusic = LoadSound("bkmusic.ogg");
-    PlayMusicStream(bkmusic);
-    Sound blWav = LoadSound("bullet.wav");
-    SetMusicVolume(bkmusic, 0.2f);
-    SetSoundVolume(blWav, 0.5f);
+    gameInit(&game);
 
-    SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
-    //--------------------------------------------------------------------------------------
-    
-    float enemy_G = 1.f;
-    // timer for enemies
-    Timer enemyTimer = { 0 };
+    SetTargetFPS(60);             
 
-    // Main game loop
-    while (!WindowShouldClose())    // Detect window close button or ESC key
+    while (!WindowShouldClose())    
     {
+        UpdateMusicStream(game.bkmusic);   
+   
+        if (IsKeyPressed(KEY_SPACE)) 
+            PlaySoundMulti(game.blWav);
         
-        Welcome();
-        // Update
-        //----------------------------------------------------------------------------------
-        // TODO: Update your variables here
-        UpdateMusicStream(bkmusic);   // Update music buffer with new stream data
-        //PlaySoundMulti(bkmusic);
-        if (IsKeyPressed(KEY_SPACE)) PlaySoundMulti(blWav);
-        //----------------------------------------------------------------------------------
-        
-        // Draw
-        //----------------------------------------------------------------------------------
         BeginDrawing();
-        //show the pics (as they should show all the time, need to be put in the loop)
-        DrawTexture(tbk, 0, 0, WHITE);
-        DrawTexture(tplayer, player.x, player.y, WHITE);
-        
-        //draw bullet only when it's alive
-        for (int i = 0; i < BULLET_NUM; i++)
-        {
-            if (bullet[i].live)
-            {
-                DrawTexture(tbullet, bullet[i].x, bullet[i].y, WHITE); 
-            }
-        }
+       
+        Drawing(&game);
+       
+        playerMove(&game, 5);
+        bulletMove(&game);
+ 
+        createEnemy(&game);       
 
-        //draw enemy
-        for (int i = 0; i < ENEMY_NUM; i++)
-        {
-            if (enemy[i].live)
-            {
-                if (enemy[i].type == BIG)
-                {
-                    DrawTexture(tenemy1, enemy[i].x, enemy[i].y, WHITE);
-                }
-                else
-                {
-                    DrawTexture(tenemy2, enemy[i].x, enemy[i].y, WHITE);
-                }
-            }
-        }
-        playerMove(5);
-        bulletMove();
-                
-    
-        StartTimer(&enemyTimer, enemy_G);
-        UpdateTimer(&enemyTimer);
-        createEnemy();
-        
-
-        enemyMove(1);
-        collisionBullet();
+        enemyMove(&game, 1);
+        collisionBullet(&game);
         ClearBackground(RAYWHITE);
 
-        DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
+        EndDrawing();     
+    }  
+    
+    UnloadTexture(game.tbk);
+    UnloadTexture(game.tplayer);
+    UnloadTexture(game.tbullet);
+    UnloadTexture(game.tenemy1);
+    UnloadTexture(game.tenemy2);
 
-        EndDrawing();
-      
-        //----------------------------------------------------------------------------------
-    }
-   
-    // De-Initialization
-    //--------------------------------------------------------------------------------------
-    UnloadTexture(tbk);//unload the pics, they should be put outside the loop
-    UnloadTexture(tplayer);
-    UnloadTexture(tbullet);
-    UnloadTexture(tenemy1);
-    UnloadTexture(tenemy2);
+    StopSoundMulti();       
+    UnloadMusicStream(game.bkmusic);  
+    UnloadSound(game.blWav);
+    CloseAudioDevice();       
 
-    StopSoundMulti();       // We must stop the buffer pool before unloading
-    UnloadMusicStream(bkmusic);   // Unload music stream buffers from RAM
-    //UnloadSound(bkmusic);
-    UnloadSound(blWav);
-    CloseAudioDevice();         // Close audio device (music streaming is automatically stopped)
-
-    CloseWindow();        // Close window and OpenGL context
-    //--------------------------------------------------------------------------------------
+    CloseWindow();       
 
     return 0;
 }
